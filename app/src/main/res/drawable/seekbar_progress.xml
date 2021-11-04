@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <bitmap
+                android:color="#e5bf67"
+                android:src="@drawable/waves"
+                android:scaleType="fitCenter"
+                android:useLevel="true"
+            >
+        </bitmap>
+    </item>
+</layer-list>

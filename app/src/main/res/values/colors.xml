@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#2b1f34</color>
+    <color name="colorPrimaryDark">#2b1f34</color>
+    <color name="colorAccent">#D81B60</color>
+    <color name="dividerColor">#6a696d</color>
+    <color name="ItemPlayingSongColor">#ffce5b</color>
+    <color name="BackgroundColor">#01141a</color>
+
+
+</resources>

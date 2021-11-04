@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:tools="http://schemas.android.com/tools"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+<item
+    android:drawable="@color/BackgroundColor"/>
+
+    <item
+        android:drawable="@drawable/icon"
+        android:gravity="center_horizontal"
+        android:width="220dp"
+        android:height="220dp"
+        android:top="250dp"
+        android:bottom="300dp"
+        />
+<!--<item-->
+<!--    android:drawable="@drawable/icon"-->
+<!--    android:gravity="center"-->
+<!--    android:width="230dp"-->
+<!--    android:height="230dp"-->
+<!--    />-->
+</layer-list>
