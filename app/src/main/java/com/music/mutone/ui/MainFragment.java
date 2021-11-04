@@ -557,12 +557,6 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
             }
         }
     }
-
-    private class Buttons {
-        private static void play(){
-
-        }
-    }
 }
 
 
