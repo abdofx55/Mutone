@@ -70,14 +70,10 @@ public class Player extends MediaPlayer {
         if (mediaFiles != null && mediaFiles.size() != 0) {
             Log.v("LOG_TAG", "initializing mediaPlayer");
 
-            // update shared preferences index parameter
-            Preferences.update(context);
-
             // update current MediaFile info
             currentMediaFile = mediaFiles.get(index);
             Uri uri = Uri.parse(currentMediaFile.getUri());
-            Log.v("LOG_TAG", String.valueOf(index));
-            Log.v("LOG_TAG", currentMediaFile.getName());
+            Log.v("LOG_TAG", index + "Name is :"+ currentMediaFile.getName());
 
             // release mediaPlayer
             release();
@@ -97,6 +93,9 @@ public class Player extends MediaPlayer {
             // Add completion listener
             if (player != null)
                 player.setOnCompletionListener(completionListener);
+
+            // update shared preferences index parameter
+            Preferences.update(context);
         }
     }
 
@@ -147,6 +146,9 @@ public class Player extends MediaPlayer {
         }
     }
 
+    public void seekTo(int progress){
+        player.seekTo(progress);
+    }
 
     private void requestAudioFocus() {
         if (!isAudioFocusGranted) {
@@ -295,15 +297,13 @@ public class Player extends MediaPlayer {
         isSongChosen = songChosen;
     }
 
-    @Override
-    public int getDuration() {
-        duration = super.getDuration();
+    public int getDuration(){
+        duration = player.getDuration();
         return duration;
     }
 
     public long getPosition() {
-        long due = getDuration() - getCurrentPosition();
-        position = duration - due;
+        position = player.getCurrentPosition();
         return position;
     }
 

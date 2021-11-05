@@ -143,10 +143,13 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
         if (isAdded())
             activity = getActivity();
 
-
         initializeValues();
+
+        // Read Preferences
+        Preferences.read(activity);
+
         updateUI(INITIALISE_UI);
-        SettingClickListener();
+        attachListeners();
 
         // Check Permission State
         checkStoragePermissionState();
@@ -189,7 +192,7 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
 
 
 
-    private void SettingClickListener() {
+    private void attachListeners() {
         binding.playerView.playLayout.setOnClickListener(playbackClickListener);
         binding.playList.setOnClickListener(playbackClickListener);
         binding.playerView.previous.setOnClickListener(playbackClickListener);
@@ -240,7 +243,6 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
         adapter = new RecyclerViewAdapter(this);
         layoutManager = new LinearLayoutManager(activity);
         alfaAscAnimation = AnimationUtils.loadAnimation(activity, R.anim.alfa_asc);
-        Preferences.read(activity);
         mediaFilesObserver = new MediaFilesObserver();
         handler = new Handler();
     }
@@ -267,18 +269,23 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
 
     protected void initializeSeekBar() {
         if (player != null) {
-            binding.playerView.seekBar.setMax((int) (player.getDuration() / 1000));
+            if (player != null) {
+                int duration = player.getDuration();      // in milliSeconds
+                binding.playerView.seekBar.setMax(duration / 1000);
+                binding.playerView.duration.setText(Tasks.formatMilliSecond(duration));
+//            Log.v("LOG_TAG", "duration is : " + duration/1000);
+
+                runnable = () -> {
+                    int position = (int) player.getPosition();      // im milliSeconds
+                    binding.playerView.seekBar.setProgress(position / 1000);
+                    binding.playerView.position.setText(Tasks.formatMilliSecond(position));
+//                Log.v("LOG_TAG", "position is :" + position/1000);
 
 
-            runnable = () -> {
-                binding.playerView.seekBar.setProgress((int) (player.getPosition()/ 1000));
-                binding.playerView.position.setText(Tasks.formatMilliSecond(player.getPosition()));
-                Log.v("LOG_TAG", "position is :" + player.getPosition() + "While duraion is : " + player.getDuration());
-
-
+                    handler.postDelayed(runnable, 1000);
+                };
                 handler.postDelayed(runnable, 1000);
-            };
-            handler.postDelayed(runnable, 1000);
+            }
         }
     }
 
@@ -304,6 +311,9 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
     }
 
     private void updateUI(int state) {
+        if (player == null)
+            player = Player.getInstance(activity);
+
         switch (state) {
             case INITIALISE_UI:
                 binding.recyclerMainActivity.setLayoutManager(layoutManager);
@@ -328,7 +338,6 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
 
                     binding.albumName.setText(currentMediaFile.getAlbum());
                     binding.songName.setText(currentMediaFile.getName());
-                    binding.playerView.duration.setText(Tasks.formatMilliSecond(currentMediaFile.getDuration()));
 
                     initializeSeekBar();
                 }
@@ -510,20 +519,21 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
     private class SeekBarChangeListener implements OnSeekBarChangeListener {
 
         @Override
-        public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
-            if (player != null && b) {
-                player.seekTo(i * 1000);
+        public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+            if (player != null && fromUser) {
+                Log.v("LOG_TAG" , "seekBar Changed ..... progress is : " + progress);
+                player.seekTo(progress*1000);
             }
         }
 
         @Override
         public void onStartTrackingTouch(SeekBar seekBar) {
-
+            Log.v("LOG_TAG" , "seekBar StartTrackingTouch");
         }
 
         @Override
         public void onStopTrackingTouch(SeekBar seekBar) {
-
+            Log.v("LOG_TAG" , "seekBar StopTrackingTouch");
         }
     }
 
