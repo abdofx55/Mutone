@@ -267,25 +267,24 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
 
 
 
-    protected void initializeSeekBar() {
+    private void initializeSeekBar() {
         if (player != null) {
-            if (player != null) {
-                int duration = player.getDuration();      // in milliSeconds
-                binding.playerView.seekBar.setMax(duration / 1000);
-                binding.playerView.duration.setText(Tasks.formatMilliSecond(duration));
+            Log.v("LOG_TAG", player.toString() + "     " + (player != null));
+            int duration = player.getDuration();      // in milliSeconds
+            binding.playerView.seekBar.setMax(duration / 1000);
+            binding.playerView.duration.setText(Tasks.formatMilliSecond(duration));
 //            Log.v("LOG_TAG", "duration is : " + duration/1000);
 
-                runnable = () -> {
-                    int position = (int) player.getPosition();      // im milliSeconds
-                    binding.playerView.seekBar.setProgress(position / 1000);
-                    binding.playerView.position.setText(Tasks.formatMilliSecond(position));
+            runnable = () -> {
+                int position = (int) player.getPosition();      // im milliSeconds
+                binding.playerView.seekBar.setProgress(position / 1000);
+                binding.playerView.position.setText(Tasks.formatMilliSecond(position));
 //                Log.v("LOG_TAG", "position is :" + position/1000);
 
 
-                    handler.postDelayed(runnable, 1000);
-                };
                 handler.postDelayed(runnable, 1000);
-            }
+            };
+            handler.postDelayed(runnable, 1000);
         }
     }
 
@@ -333,13 +332,13 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
 
             case UPDATE_MEDIA_DATA:
                 // Media Data
+                initializeSeekBar();
+
                 if (player != null) {
                     MediaFile currentMediaFile = player.getCurrentMediaFile();
 
                     binding.albumName.setText(currentMediaFile.getAlbum());
                     binding.songName.setText(currentMediaFile.getName());
-
-                    initializeSeekBar();
                 }
 
                 break;
@@ -414,7 +413,8 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
                 if (!player.isVary() & !player.isContinue()) {
                     binding.playerView.vary.setImageResource(R.drawable.vary_active);
                     binding.playerView.repeat.setImageResource(R.drawable.repeat_not_active);
-                    player.setRepeating(false);
+//                    player.setRepeating(false);
+                    player.setLooping(false);
                     player.setContinue(false);
                     player.setVary(true);
 
@@ -424,7 +424,8 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
                 } else if (player.isVary()) {
                     binding.playerView.vary.setImageResource(R.drawable.continued);
                     binding.playerView.repeat.setImageResource(R.drawable.repeat_not_active);
-                    player.setRepeating(false);
+//                    player.setRepeating(false);
+                    player.setLooping(false);
                     player.setContinue(true);
                     player.setVary(false);
 
@@ -433,7 +434,8 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
 
                 } else {
                     binding.playerView.vary.setImageResource(R.drawable.vary_not_active);
-                    player.setRepeating(false);
+//                    player.setRepeating(false);
+                    player.setLooping(false);
                     player.setContinue(false);
                     player.setVary(false);
 
@@ -501,7 +503,8 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
                     binding.playerView.repeat.setImageResource(R.drawable.repeat_active);
                     binding.playerView.vary.setImageResource(R.drawable.vary_not_active);
 
-                    player.setRepeating(true);
+//                    player.setRepeating(true);
+                    player.setLooping(true);
                     player.setContinue(false);
                     player.setVary(false);
 

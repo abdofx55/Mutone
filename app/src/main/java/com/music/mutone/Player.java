@@ -298,11 +298,15 @@ public class Player extends MediaPlayer {
     }
 
     public int getDuration(){
+        if (player == null)
+            initialize();
         duration = player.getDuration();
         return duration;
     }
 
     public long getPosition() {
+        if (player == null)
+            initialize();
         position = player.getCurrentPosition();
         return position;
     }
@@ -347,8 +351,8 @@ public class Player extends MediaPlayer {
 
         @Override
         public void onCompletion(MediaPlayer mediaPlayer) {
-            if (isRepeating)
-                play();
+//            if (isRepeating)
+//                play();
 
             if (isVary){
                 varyNext();
