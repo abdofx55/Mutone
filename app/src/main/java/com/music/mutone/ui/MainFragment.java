@@ -34,7 +34,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.music.mutone.MediaViewModel;
 import com.music.mutone.Player;
-import com.music.mutone.Preferences;
+import com.music.mutone.PreferencesUtil;
 import com.music.mutone.R;
 import com.music.mutone.RecyclerViewAdapter;
 import com.music.mutone.Tasks;
@@ -145,7 +145,7 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
         initializeValues();
 
         // Read Preferences
-        Preferences.read(activity);
+        PreferencesUtil.CRUD.read(activity);
 
         updateUI(INITIALISE_UI);
         attachListeners();
@@ -421,7 +421,7 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
                     player.setVary(true);
 
                     // update sharedPreferences
-                    Preferences.update(activity);
+                    PreferencesUtil.CRUD.update(activity);
 
                 } else if (player.isVary()) {
                     binding.playerView.vary.setImageResource(R.drawable.continued);
@@ -432,7 +432,7 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
                     player.setVary(false);
 
                     // update sharedPreferences
-                    Preferences.update(activity);
+                    PreferencesUtil.CRUD.update(activity);
 
                 } else {
                     binding.playerView.vary.setImageResource(R.drawable.vary_not_active);
@@ -442,7 +442,7 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
                     player.setVary(false);
 
                     // update sharedPreferences
-                    Preferences.update(activity);
+                    PreferencesUtil.CRUD.update(activity);
                 }
 
 //            previous Button
@@ -524,7 +524,7 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
                 }
 
                 // update sharedPreferences
-                Preferences.update(activity);
+                PreferencesUtil.CRUD.update(activity);
             }
         }
     }

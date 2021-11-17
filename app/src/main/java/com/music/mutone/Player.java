@@ -78,7 +78,7 @@ public class Player extends MediaPlayer {
             }
 
             // update shared preferences index parameter
-            Preferences.update(context);
+            PreferencesUtil.CRUD.update(context);
         }
     }
 
