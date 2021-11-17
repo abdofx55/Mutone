@@ -17,25 +17,6 @@ public class Player extends MediaPlayer {
     private static final String TAG = "LOG_TAG";
     private static Player sInstance;
 
-//    private static final String CMD_NAME = "command";
-//    private static final String CMD_PAUSE = "pause";
-//    private static final String CMD_STOP = "pause";
-//    private static final String CMD_PLAY = "play";
-//
-//    // Jellybean
-//    private static String SERVICE_CMD = "com.sec.android.app.music.musicservicecommand";
-//    private static String PAUSE_SERVICE_CMD = "com.sec.android.app.music.musicservicecommand.pause";
-//    private static String PLAY_SERVICE_CMD = "com.sec.android.app.music.musicservicecommand.play";
-//
-//    // Honeycomb
-//    {
-//        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.JELLY_BEAN) {
-//            SERVICE_CMD = "com.android.music.musicservicecommand";
-//            PAUSE_SERVICE_CMD = "com.android.music.musicservicecommand.pause";
-//            PLAY_SERVICE_CMD = "com.android.music.musicservicecommand.play";
-//        }
-//    };
-
     private final Context context;
     private int index;
     private boolean isAudioFocusGranted;
@@ -50,12 +31,10 @@ public class Player extends MediaPlayer {
     private ArrayList<MediaFile> mediaFiles;
     private MediaFile currentMediaFile;
     private AudioFocusChangeListener audioFocusChangeListener;
-    private final CompletionListener completionListener;
 
 
     private Player(Context context) {
         this.context = context;
-        completionListener = new CompletionListener();
         audioFocusChangeListener = new AudioFocusChangeListener();
     }
 
@@ -67,13 +46,20 @@ public class Player extends MediaPlayer {
     }
 
     public void initialize() {
+
         if (mediaFiles != null && mediaFiles.size() != 0) {
             Log.v("LOG_TAG", "initializing mediaPlayer");
 
             // update current MediaFile info
-            currentMediaFile = mediaFiles.get(index);
+            try {
+                currentMediaFile = mediaFiles.get(index);
+            } catch (IndexOutOfBoundsException exception) {
+                index = 0;
+                currentMediaFile = mediaFiles.get(index);
+            }
+
             Uri uri = Uri.parse(currentMediaFile.getUri());
-            Log.v("LOG_TAG", index + "Name is :"+ currentMediaFile.getName());
+            Log.v("LOG_TAG", index + "Name is :" + currentMediaFile.getName());
 
             // release mediaPlayer
             release();
@@ -90,9 +76,6 @@ public class Player extends MediaPlayer {
                                 .build()
                 );
             }
-            // Add completion listener
-            if (player != null)
-                player.setOnCompletionListener(completionListener);
 
             // update shared preferences index parameter
             Preferences.update(context);
@@ -102,24 +85,21 @@ public class Player extends MediaPlayer {
 
     public void play() {
         if (!isPlaying) {
+
             if (player == null) {
                 initialize();
             }
 
 
-            if (isAudioFocusGranted) {
+            if (isAudioFocusGranted && player != null) {
                 player.start();
+                isPlaying = true;
 
-
-////                // 2. Kill off any other play back sources
-////                forceMusicStop();
-////                // 3. Register broadcast receiver for player intents
-////                setupBroadcastReceiver();
             } else
                 // request audio focus
                 requestAudioFocus();
 
-            isPlaying = true;
+
         }
     }
 
@@ -132,8 +112,7 @@ public class Player extends MediaPlayer {
             }
         }
     }
-//    private BroadcastReceiver broadcastReceiver;
-//    private boolean isReceiverRegistered;
+
 
     public void release() {
         // 1. Stop playback
@@ -146,8 +125,9 @@ public class Player extends MediaPlayer {
         }
     }
 
-    public void seekTo(int progress){
-        player.seekTo(progress);
+    public void seekTo(int progress) {
+        if (player != null)
+            player.seekTo(progress);
     }
 
     private void requestAudioFocus() {
@@ -297,17 +277,15 @@ public class Player extends MediaPlayer {
         isSongChosen = songChosen;
     }
 
-    public int getDuration(){
-        if (player == null)
-            initialize();
-        duration = player.getDuration();
+    public int getDuration() {
+        if (player != null)
+            duration = player.getDuration();
         return duration;
     }
 
     public long getPosition() {
-        if (player == null)
-            initialize();
-        position = player.getCurrentPosition();
+        if (player != null)
+            position = player.getCurrentPosition();
         return position;
     }
 
@@ -347,65 +325,6 @@ public class Player extends MediaPlayer {
         }
     }
 
-    private class CompletionListener  implements MediaPlayer.OnCompletionListener{
-
-        @Override
-        public void onCompletion(MediaPlayer mediaPlayer) {
-//            if (isRepeating)
-//                play();
-
-            if (isVary){
-                varyNext();
-                play();
-            }
-
-            if (isContinue){
-                index++;
-                play();
-            }
-        }
-    }
-
-//    private void setupBroadcastReceiver() {
-//        broadcastReceiver = new BroadcastReceiver() {
-//            @Override
-//            public void onReceive(Context context, Intent intent) {
-//                String action = intent.getAction();
-//                String cmd = intent.getStringExtra(CMD_NAME);
-//                Log.i(TAG, "broadcastReceiver.onReceive " + action + " / " + cmd);
-//
-//                if (PAUSE_SERVICE_CMD.equals(action)
-//                        || (SERVICE_CMD.equals(action) && CMD_PAUSE.equals(cmd))) {
-//                    play();
-//                }
-//
-//                if (PLAY_SERVICE_CMD.equals(action)
-//                        || (SERVICE_CMD.equals(action) && CMD_PLAY.equals(cmd))) {
-//                    pause();
-//                }
-//            }
-//        };
-//
-//        // Do the right thing when something else tries to play
-//        if (!isReceiverRegistered) {
-//            IntentFilter commandFilter = new IntentFilter();
-//            commandFilter.addAction(SERVICE_CMD);
-//            commandFilter.addAction(PAUSE_SERVICE_CMD);
-//            commandFilter.addAction(PLAY_SERVICE_CMD);
-//            context.registerReceiver(broadcastReceiver, commandFilter);
-//            isReceiverRegistered = true;
-//        }
-//    }
-//
-//    private void forceMusicStop() {
-//        AudioManager audioManager = (AudioManager) context
-//                .getSystemService(Context.AUDIO_SERVICE);
-//        if (audioManager.isMusicActive()) {
-//            Intent intentToStop = new Intent(SERVICE_CMD);
-//            intentToStop.putExtra(CMD_NAME, CMD_STOP);
-//            context.sendBroadcast(intentToStop);
-//        }
-//    }
 }
 
 

@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.media.AudioManager;
+import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -54,7 +55,6 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
     private static final int UPDATE_MEDIA_DATA = 1;
     private static final int PLAY = 2;
     private static final int PAUSE = 3;
-    public static boolean isStoragePermissionGranted;
     public static RecyclerViewAdapter adapter;
     public Player player;
     FragmentMainBinding binding;
@@ -64,43 +64,42 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
     private Activity activity;
     private PlayerClickListener playbackClickListener;
     private OnSeekBarChangeListener seekBarChangeListener;
-    private MediaFilesObserver mediaFilesObserver;
-    Animation alfaAscAnimation;
-    Toast toast;
-
-    private Handler handler;
-    private Runnable runnable;
-
     // Register the permissions callback, which handles the user's response to the
     // system permissions dialog. Save the return value, an instance of
     // ActivityResultLauncher, as an instance variable.
-    private ActivityResultLauncher<String> requestPermissionLauncher =
+    private final ActivityResultLauncher<String> requestPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
                 if (isGranted) {
                     // Permission is granted.
-                    Log.v("LOG_TAG" , "permission granted");
-                    isStoragePermissionGranted = true;
+                    Log.v("LOG_TAG", "permission granted");
+                    viewModel.setStoragePermissionGranted(true);
                     binding.emptyMainlistTextView.setText("");
                     readMediaFiles();
                 } else {
                     // Should we show an explanation?
                     if (ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.READ_EXTERNAL_STORAGE)) {
                         // User has denied the permission
-                        Log.v("LOG_TAG" , "permission denied");
-                    }else{
+                        Log.v("LOG_TAG", "permission denied");
+                    } else {
                         //// User has denied the permission permanently
-                        Log.v("LOG_TAG" , "permission denied permanently");
+                        Log.v("LOG_TAG", "permission denied permanently");
                     }
-                    isStoragePermissionGranted = false;
+                    viewModel.setStoragePermissionGranted(false);
                     binding.emptyMainlistTextView.setText(R.string.empty_due_permission);
                 }
             });
+    private MediaFilesObserver mediaFilesObserver;
+    Animation alfaAscAnimation;
+    Toast toast;
+
+    private Handler handler;
+    private Runnable runnable;
+    private CompletionListener completionListener;
 
 
     // TODO: Rename and change types of parameters
     private String mParam1;
     private String mParam2;
-
 
 
     public MainFragment() {
@@ -154,7 +153,7 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
         // Check Permission State
         checkStoragePermissionState();
 
-        if (isStoragePermissionGranted) {
+        if (viewModel.isStoragePermissionGranted()) {
             // Read MediaFiles if permission granted
             readMediaFiles();
         }
@@ -166,14 +165,14 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
 
     public void checkStoragePermissionState() {
         if (ActivityCompat.checkSelfPermission(
-                activity , Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+                activity, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
             // Permission granted
-            isStoragePermissionGranted = true;
+            viewModel.setStoragePermissionGranted(true);
 
         } else {
             // You can directly ask for the permission.
             // The registered ActivityResultCallback gets the result of this request.
-            isStoragePermissionGranted = false;
+            viewModel.setStoragePermissionGranted(false);
             binding.emptyMainlistTextView.setText(R.string.empty_due_permission);
             requestPermissionLauncher.launch(
                     Manifest.permission.READ_EXTERNAL_STORAGE);
@@ -188,8 +187,6 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
     private void readMediaFiles() {
         viewModel.getMediaFiles(activity).observe(getViewLifecycleOwner(), mediaFilesObserver);
     }
-
-
 
 
     private void attachListeners() {
@@ -240,6 +237,7 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
         audioManager = (AudioManager) activity.getSystemService(Context.AUDIO_SERVICE);
         playbackClickListener = new PlayerClickListener();
         seekBarChangeListener = new SeekBarChangeListener();
+        completionListener = new CompletionListener();
         adapter = new RecyclerViewAdapter(this);
         layoutManager = new LinearLayoutManager(activity);
         alfaAscAnimation = AnimationUtils.loadAnimation(activity, R.anim.alfa_asc);
@@ -264,7 +262,6 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
             updateUI(PLAY);
         }
     }
-
 
 
     private void initializeSeekBar() {
@@ -297,8 +294,6 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
 //    }
 
 
-
-
     @Override
     public void onStart() {
         super.onStart();
@@ -307,6 +302,10 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
     @Override
     public void onResume() {
         super.onResume();
+
+        // Attaching OnCompletionListener
+        if (player != null)
+            player.setOnCompletionListener(completionListener);
     }
 
     private void updateUI(int state) {
@@ -332,13 +331,15 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
 
             case UPDATE_MEDIA_DATA:
                 // Media Data
-                initializeSeekBar();
-
                 if (player != null) {
                     MediaFile currentMediaFile = player.getCurrentMediaFile();
 
-                    binding.albumName.setText(currentMediaFile.getAlbum());
-                    binding.songName.setText(currentMediaFile.getName());
+                    if (currentMediaFile != null) {
+                        binding.albumName.setText(currentMediaFile.getAlbum());
+                        binding.songName.setText(currentMediaFile.getName());
+                    }
+
+                    initializeSeekBar();
                 }
 
                 break;
@@ -382,6 +383,7 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
         if (navDestination != null && navDestination.getId() == R.id.mainFragment)
             navController.navigate(action);
     }
+
 
     class PlayerClickListener implements View.OnClickListener {
         @Override
@@ -455,8 +457,10 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
                     }
                     player.initialize();
                     player.play();
-                    updateUI(UPDATE_MEDIA_DATA);
-                    updateUI(PLAY);
+                    if (player.isPlaying()) {
+                        updateUI(UPDATE_MEDIA_DATA);
+                        updateUI(PLAY);
+                    }
 
                     //scroll to list item position
                     binding.recyclerMainActivity.scrollTo(player.getIndex(), 0);
@@ -468,11 +472,14 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
             } else if (view == binding.playerView.playLayout) {
                 if (player != null && player.getMediaFiles() != null) {
                     if (!player.isPlaying()) {
-                        updateUI(PLAY);
                         player.play();
-                    }else {
-                        updateUI(PAUSE);
+                        if (player.isPlaying())
+                            updateUI(PLAY);
+
+                    } else {
                         player.pause();
+                        if (!player.isPlaying())
+                            updateUI(PAUSE);
                     }
                 }
 
@@ -488,8 +495,11 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
                     }
                     player.initialize();
                     player.play();
-                    updateUI(UPDATE_MEDIA_DATA);
-                    updateUI(PLAY);
+
+                    if (player.isPlaying()) {
+                        updateUI(UPDATE_MEDIA_DATA);
+                        updateUI(PLAY);
+                    }
 
                     //scroll to list item position
                     binding.recyclerMainActivity.scrollTo(player.getIndex(), 0);
@@ -524,19 +534,19 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
         @Override
         public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
             if (player != null && fromUser) {
-                Log.v("LOG_TAG" , "seekBar Changed ..... progress is : " + progress);
-                player.seekTo(progress*1000);
+                Log.v("LOG_TAG", "seekBar Changed ..... progress is : " + progress);
+                player.seekTo(progress * 1000);
             }
         }
 
         @Override
         public void onStartTrackingTouch(SeekBar seekBar) {
-            Log.v("LOG_TAG" , "seekBar StartTrackingTouch");
+            Log.v("LOG_TAG", "seekBar StartTrackingTouch");
         }
 
         @Override
         public void onStopTrackingTouch(SeekBar seekBar) {
-            Log.v("LOG_TAG" , "seekBar StopTrackingTouch");
+            Log.v("LOG_TAG", "seekBar StopTrackingTouch");
         }
     }
 
@@ -550,11 +560,11 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
             // Bail early if the arraylist is null or there is less than 1 row in the arraylist
             if (mediaFiles == null) {
                 binding.emptyMainlistTextView.setText("Failed to load media files");
-                Toast.makeText(activity , "Failed to load media files", Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, "Failed to load media files", Toast.LENGTH_SHORT).show();
 
             } else if (mediaFiles.size() == 0) {
                 binding.emptyMainlistTextView.setText("No media found on this device");
-                Toast.makeText(activity , "No media found on this device", Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, "No media found on this device", Toast.LENGTH_SHORT).show();
             } else {
                 binding.emptyMainlistTextView.setText("");
 
@@ -568,6 +578,34 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
                 //update UI with the current file
                 updateUI(UPDATE_MEDIA_DATA);
             }
+        }
+    }
+
+    private class CompletionListener implements MediaPlayer.OnCompletionListener {
+
+        @Override
+        public void onCompletion(MediaPlayer mediaPlayer) {
+            if (player.isRepeating()) {
+                player.initialize();
+                player.play();
+                updateUI(UPDATE_MEDIA_DATA);
+            }
+
+
+            if (player.isVary()) {
+                player.varyNext();
+                player.initialize();
+                player.play();
+                updateUI(UPDATE_MEDIA_DATA);
+            }
+
+            if (player.isContinue()) {
+                player.setIndex(player.getIndex() + 1);
+                player.initialize();
+                player.play();
+                updateUI(UPDATE_MEDIA_DATA);
+            }
+
         }
     }
 }

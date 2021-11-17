@@ -1,7 +1,6 @@
 package com.music.mutone.ui;
 
 import android.app.Activity;
-import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -10,8 +9,10 @@ import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.databinding.DataBindingUtil;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
+import com.music.mutone.MediaViewModel;
 import com.music.mutone.Player;
 import com.music.mutone.R;
 import com.music.mutone.RecyclerViewAdapter;
@@ -26,8 +27,8 @@ public class PlaylistFragment extends Fragment implements RecyclerViewAdapter.Li
     FragmentPlaylistBinding binding;
     Activity activity;
     Player player;
-    private int songChosen;
     LinearLayoutManager layoutManager;
+    MediaViewModel viewModel;
 
     // TODO: Rename parameter arguments, choose names that match
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
@@ -79,6 +80,7 @@ public class PlaylistFragment extends Fragment implements RecyclerViewAdapter.Li
         if (isAdded())
             activity = getActivity();
 
+        viewModel = new ViewModelProvider(this).get(MediaViewModel.class);
         player = Player.getInstance(activity);
 
         binding.recyclerPlaylistActivity.setAdapter(MainFragment.adapter);
@@ -87,9 +89,8 @@ public class PlaylistFragment extends Fragment implements RecyclerViewAdapter.Li
         binding.recyclerPlaylistActivity.setHasFixedSize(true);
 
         layoutManager.scrollToPositionWithOffset(player.getIndex(), 0);
-        songChosen = player.getIndex();
 
-        if (!(MainFragment.isStoragePermissionGranted))
+        if (!(viewModel.isStoragePermissionGranted()))
             binding.emptyPlaylistTextView.setText(R.string.empty_due_permission);
 
         // Inflate the layout for this fragment
@@ -98,11 +99,10 @@ public class PlaylistFragment extends Fragment implements RecyclerViewAdapter.Li
 
     @Override
     public void onListItemClick(int clickedItemIndex) {
-        player.setIndex(clickedItemIndex);
-        if (player.getIndex() != songChosen) {
-            Intent intent = activity.getIntent();
-            intent.putExtra("isSongChosen", true);
-            activity.setResult(Activity.RESULT_OK, intent);
+        if (clickedItemIndex != player.getIndex()) {
+            player.setIndex(clickedItemIndex);
+            player.initialize();
+            player.play();
         }
         moveTaskToBack(activity);
     }

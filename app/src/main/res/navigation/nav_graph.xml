@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <navigation xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
     app:startDestination="@id/mainFragment">
 
@@ -13,7 +12,7 @@
             android:id="@+id/action_mainFragment_to_playlistFragment"
             app:destination="@id/playlistFragment"
             app:enterAnim="@anim/slide_in_bottom"
-            app:launchSingleTop="false"
+            app:launchSingleTop="true"
             app:popExitAnim="@anim/slide_out_bottom"
             app:popUpTo="@id/mainFragment"
             app:popUpToInclusive="false"

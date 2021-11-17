@@ -14,6 +14,7 @@ import java.util.ArrayList;
 
 public class MediaViewModel extends ViewModel {
     private MutableLiveData<ArrayList<MediaFile>> mediaFiles;
+    private boolean isStoragePermissionGranted;
 
     public LiveData<ArrayList<MediaFile>> getMediaFiles(Context context) {
         if (mediaFiles == null) {
@@ -74,4 +75,13 @@ public class MediaViewModel extends ViewModel {
             mediaFiles.setValue(mediaFilesArrayList);
         }
     }
+
+    public boolean isStoragePermissionGranted() {
+        return isStoragePermissionGranted;
+    }
+
+    public void setStoragePermissionGranted(boolean storagePermissionGranted) {
+        isStoragePermissionGranted = storagePermissionGranted;
+    }
+
 }
