@@ -1,7 +1,8 @@
 package com.music.mutone.ui;
 
-import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -10,13 +11,18 @@ import androidx.annotation.NonNull;
 import androidx.databinding.DataBindingUtil;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
+import com.music.mutone.Data.MediaFile;
 import com.music.mutone.MediaViewModel;
 import com.music.mutone.Player;
+import com.music.mutone.PlayerReceiver;
 import com.music.mutone.R;
 import com.music.mutone.RecyclerViewAdapter;
 import com.music.mutone.databinding.FragmentPlaylistBinding;
+
+import java.util.ArrayList;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -24,9 +30,18 @@ import com.music.mutone.databinding.FragmentPlaylistBinding;
  * create an instance of this fragment.
  */
 public class PlaylistFragment extends Fragment implements RecyclerViewAdapter.ListItemClickHandler {
+
+    private static final String TAG = "PLAT_LIST_FRAGMENT_LOG_TAG";
+
+    // Intent actions for Broadcast Receiver . actions are used to control Player in the service
+    private static final String ACTION_PLAY = "PLAY";
+    private static final String ACTION_PAUSE = "PAUSE";
+    private static final String ACTION_FORWARD = "FORWARD";
+    private static final String ACTION_PREVIOUS = "PREVIOUS";
+
     FragmentPlaylistBinding binding;
-    Activity activity;
     Player player;
+    public RecyclerViewAdapter adapter;
     LinearLayoutManager layoutManager;
     MediaViewModel viewModel;
 
@@ -77,40 +92,49 @@ public class PlaylistFragment extends Fragment implements RecyclerViewAdapter.Li
         // Inflate the layout for this fragment
         binding = DataBindingUtil.inflate(inflater, R.layout.fragment_playlist, container, false);
 
-        if (isAdded())
-            activity = getActivity();
+        viewModel = new ViewModelProvider(requireActivity()).get(MediaViewModel.class);
+        player = Player.getInstance(requireActivity());
+        adapter = new RecyclerViewAdapter(this);
+        ArrayList<MediaFile> mediaFiles = viewModel.getMediaFiles().getValue();
+        adapter.setMediaFiles(mediaFiles);
 
-        viewModel = new ViewModelProvider(this).get(MediaViewModel.class);
-        player = Player.getInstance(activity);
 
-        binding.recyclerPlaylistActivity.setAdapter(MainFragment.adapter);
-        layoutManager = new LinearLayoutManager(activity);
+        binding.recyclerPlaylistActivity.setAdapter(adapter);
+        layoutManager = new LinearLayoutManager(requireContext());
         binding.recyclerPlaylistActivity.setLayoutManager(layoutManager);
         binding.recyclerPlaylistActivity.setHasFixedSize(true);
 
         layoutManager.scrollToPositionWithOffset(player.getIndex(), 0);
 
-        if (!(viewModel.isStoragePermissionGranted()))
-            binding.emptyPlaylistTextView.setText(R.string.empty_due_permission);
+        Log.v("LOG_TAG", "Permission Granted is : " + viewModel.isStoragePermissionGranted());
+
+        // Setting viewModel in xml to update UI
+        binding.setViewModel(viewModel);
 
         // Inflate the layout for this fragment
         return binding.getRoot();
+    }
+
+    public void sendBroadcast(String action) {
+        Intent intent = new Intent(requireContext(), PlayerReceiver.class);
+        intent.setAction((action));
+        LocalBroadcastManager.getInstance(requireActivity()).sendBroadcast(intent);
     }
 
     @Override
     public void onListItemClick(int clickedItemIndex) {
         if (clickedItemIndex != player.getIndex()) {
             player.setIndex(clickedItemIndex);
-            player.initialize();
-            player.play();
+            player.initialize(requireContext());
+            sendBroadcast(ACTION_PLAY);
         }
-        moveTaskToBack(activity);
+        //move to back
+        getParentFragmentManager().popBackStack();
     }
 
 
-    private void moveTaskToBack(Activity activity) {
-        if (activity != null)
-            activity.moveTaskToBack(true);
+    private void moveTaskToBack() {
+        requireActivity().moveTaskToBack(true);
     }
 
     @Override

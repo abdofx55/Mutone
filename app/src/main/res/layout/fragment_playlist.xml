@@ -4,6 +4,9 @@
 
     <data>
 
+        <variable
+            name="viewModel"
+            type="com.music.mutone.MediaViewModel" />
     </data>
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -35,7 +38,8 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            tools:text="empty text view" />
+            android:text="@{viewModel.storagePermissionState}"
+            tools:text="@string/empty_due_permission" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recycler_playlist_activity"

@@ -9,15 +9,15 @@ public class Tasks {
      * Timer Format
      * Hours:Minutes:Seconds
      */
-    public static String formatMilliSecond(long milliseconds) {
+    public static String formatMilliSecond(int milliseconds) {
         String finalTimerString = "";
         String secondsString;
         String minuteString;
 
         // Convert total duration into time
-        int hours = (int) (milliseconds / (1000 * 60 * 60));
-        int minutes = (int) (milliseconds % (1000 * 60 * 60)) / (1000 * 60);
-        int seconds = (int) ((milliseconds % (1000 * 60 * 60)) % (1000 * 60) / 1000);
+        int hours = milliseconds / (1000 * 60 * 60);
+        int minutes = (milliseconds % (1000 * 60 * 60)) / (1000 * 60);
+        int seconds = (milliseconds % (1000 * 60 * 60)) % (1000 * 60) / 1000;
 
         // Prepending 0 to seconds if it is one digit
         if (seconds < 10) {

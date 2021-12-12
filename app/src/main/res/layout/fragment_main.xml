@@ -4,6 +4,9 @@
 
     <data>
 
+        <variable
+            name="viewModel"
+            type="com.music.mutone.MediaViewModel" />
     </data>
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -15,14 +18,11 @@
 
         <ImageView
             android:id="@+id/back"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
             android:layout_gravity="center_vertical"
-            android:layout_marginLeft="20dp"
-            android:layout_marginTop="16dp"
-            android:paddingTop="8dp"
-            android:paddingRight="16dp"
-            android:paddingBottom="8dp"
+            android:layout_marginTop="8dp"
+            android:padding="18dp"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:srcCompat="@drawable/back"
@@ -30,16 +30,13 @@
 
         <ImageView
             android:id="@+id/play_list"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
             android:layout_alignParentEnd="true"
             android:layout_alignParentRight="true"
             android:layout_gravity="center_vertical|end"
-            android:layout_marginTop="16dp"
-            android:layout_marginRight="20dp"
-            android:paddingLeft="16dp"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp"
+            android:layout_marginTop="8dp"
+            android:padding="18dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:srcCompat="@drawable/play_list"
@@ -71,6 +68,7 @@
             app:layout_constraintEnd_toStartOf="@+id/play_list"
             app:layout_constraintStart_toEndOf="@+id/back"
             app:layout_constraintTop_toBottomOf="@+id/album"
+            android:text="@{viewModel.album}"
             tools:text="6 Pop Music Albums" />
 
         <TextView
@@ -100,7 +98,8 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="@+id/recycler_main_activity"
             app:layout_constraintVertical_bias="0.35"
-            tools:text="empty text view " />
+            android:text="@{viewModel.storagePermissionState}"
+            tools:text="@string/empty_due_permission" />
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/constraintLayout2"
@@ -165,6 +164,7 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintVertical_bias="0.79"
+                android:text='@{viewModel.name}'
                 tools:text="Something In The Air - Bonobo Remix Night Vision" />
         </androidx.constraintlayout.widget.ConstraintLayout>
 
