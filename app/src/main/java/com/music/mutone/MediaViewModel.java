@@ -1,87 +1,137 @@
 package com.music.mutone;
 
-import android.content.Context;
-import android.database.Cursor;
-import android.provider.MediaStore;
+import android.app.Application;
 
-import androidx.lifecycle.LiveData;
+import androidx.annotation.NonNull;
+import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.MutableLiveData;
-import androidx.lifecycle.ViewModel;
 
-import com.music.mutone.pojo.MediaFile;
+import com.music.mutone.Data.MediaFile;
 
 import java.util.ArrayList;
 
-public class MediaViewModel extends ViewModel {
-    private MutableLiveData<ArrayList<MediaFile>> mediaFiles;
-    private boolean isStoragePermissionGranted;
+public class MediaViewModel extends AndroidViewModel {
 
-    public LiveData<ArrayList<MediaFile>> getMediaFiles(Context context) {
-        if (mediaFiles == null) {
-            mediaFiles = new MutableLiveData<>();
-            loadMediaFiles(context);
-        }
-        return mediaFiles;
+    private static final String TAG = "VIEW_MODEL_LOG_TAG";
+    public final MutableLiveData<String> storagePermissionState = new MutableLiveData<>();
+    private final Player player;
+
+    private final MutableLiveData<Boolean> isStoragePermissionGranted = new MutableLiveData<>();
+    private final MutableLiveData<ArrayList<MediaFile>> mediaFiles = new MutableLiveData<>();
+    private final MutableLiveData<Integer> index = new MutableLiveData<>();
+    private final MutableLiveData<String> name = new MutableLiveData<>();
+    private final MutableLiveData<String> album = new MutableLiveData<>();
+    private final MutableLiveData<Integer> position = new MutableLiveData<>();
+    private final MutableLiveData<Integer> duration = new MutableLiveData<>();
+    private final MutableLiveData<Boolean> isVary = new MutableLiveData<>();
+    private final MutableLiveData<Boolean> isContinue = new MutableLiveData<>();
+    private final MutableLiveData<Boolean> isRepeating = new MutableLiveData<>();
+    Application application;
+
+
+    public MediaViewModel(@NonNull Application application) {
+        super(application);
+        this.application = application;
+        player = Player.getInstance(application);
     }
 
-    private void loadMediaFiles(Context context) {
-        queryMediaStoreForMediaFiles(context);
+    public void readDataFromRepository() {
+        getMediaFiles();
+        getIndex();
+        getName();
+        getAlbum();
+        getPosition();
+        getDuration();
+        getIsVary();
+        getIsRepeating();
+        getIsContinue();
     }
 
-    private void queryMediaStoreForMediaFiles(Context context) {
-        // Do an asynchronous operation to fetch media files.
-        String[] projection = new String[] {
-                "_id",
-                "_data",
-                "_display_name",
-                "album",
-                "duration"};
 
+    // Getters
+    //**********************************************************************************************
 
-        Cursor cursor = context.getContentResolver().query(
-                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                projection,
-                null,
-                null,
-                null
-        );
-
-        copyCursorToLiveList(cursor , mediaFiles);
-        // Close cursor
-        cursor.close();
-    }
-
-    private void copyCursorToLiveList(Cursor cursor, MutableLiveData<ArrayList<MediaFile>> mediaFiles) {
-        if (cursor != null) {
-            ArrayList<MediaFile> mediaFilesArrayList = new ArrayList<>();
-            // Cache column indices.
-            int nameColumn = cursor.getColumnIndex(MediaStore.Audio.Media.DISPLAY_NAME);
-            int albumColumn = cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM);
-            int durationColumn = cursor.getColumnIndex(MediaStore.Audio.Media.DURATION);
-            int uriColumn = cursor.getColumnIndex(MediaStore.Audio.Media.DATA);
-
-
-            while (cursor.moveToNext()) {
-                // copy cursor to mediaFiles arraylist
-                String name = cursor.getString(nameColumn);
-                String album = cursor.getString(albumColumn);
-                long duration = cursor.getLong(durationColumn);
-                String uri = cursor.getString(uriColumn);
-
-                MediaFile mediaFile = new MediaFile(name, album, duration, uri);
-                mediaFilesArrayList.add(mediaFile);
-            }
-            // make it live data
-            mediaFiles.setValue(mediaFilesArrayList);
-        }
-    }
-
-    public boolean isStoragePermissionGranted() {
+    public MutableLiveData<Boolean> isStoragePermissionGranted() {
         return isStoragePermissionGranted;
     }
 
     public void setStoragePermissionGranted(boolean storagePermissionGranted) {
-        isStoragePermissionGranted = storagePermissionGranted;
+        isStoragePermissionGranted.setValue(storagePermissionGranted);
+
+        if (storagePermissionGranted)
+            storagePermissionState.setValue("");
+        else
+            storagePermissionState.setValue(application.getString(R.string.empty_due_permission));
+    }
+
+
+    public MutableLiveData<ArrayList<MediaFile>> getMediaFiles() {
+        if (mediaFiles.getValue() == null && player != null) {
+            // Read data from data repository
+            mediaFiles.setValue(player.getMediaFiles());
+        }
+        return mediaFiles;
+    }
+
+
+    public MutableLiveData<String> getName() {
+        if (player != null) {
+            MediaFile mediaFile = player.getCurrentMediaFile();
+            if (mediaFile != null) {
+                name.setValue(mediaFile.getName());
+            }
+        }
+        return name;
+    }
+
+    public MutableLiveData<String> getAlbum() {
+        if (player != null) {
+            MediaFile mediaFile = player.getCurrentMediaFile();
+
+            if (mediaFile != null)
+                album.setValue(mediaFile.getAlbum());
+        }
+        return album;
+    }
+
+
+    public MutableLiveData<Integer> getPosition() {
+        if (player != null)
+            position.setValue(player.getPosition());
+
+        return position;
+    }
+
+    public MutableLiveData<Integer> getDuration() {
+        if (player != null)
+            duration.setValue(player.getDurationTime());
+
+        return duration;
+    }
+
+    public MutableLiveData<Integer> getIndex() {
+        if (player != null)
+            index.setValue(player.getIndex());
+
+        return index;
+    }
+
+    public MutableLiveData<Boolean> getIsVary() {
+        isVary.setValue(player.isVary());
+
+        return isVary;
+    }
+
+    public MutableLiveData<Boolean> getIsContinue() {
+        isContinue.setValue(player.isContinue());
+
+        return isContinue;
+    }
+
+    public MutableLiveData<Boolean> getIsRepeating() {
+        isRepeating.setValue(player.isRepeating());
+
+        return isRepeating;
     }
 
 }

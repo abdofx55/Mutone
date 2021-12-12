@@ -11,12 +11,9 @@
         <action
             android:id="@+id/action_mainFragment_to_playlistFragment"
             app:destination="@id/playlistFragment"
-            app:enterAnim="@anim/slide_in_bottom"
             app:launchSingleTop="true"
-            app:popExitAnim="@anim/slide_out_bottom"
             app:popUpTo="@id/mainFragment"
-            app:popUpToInclusive="false"
-            app:popUpToSaveState="true" />
+            app:popUpToInclusive="false" />
     </fragment>
     <fragment
         android:id="@+id/playlistFragment"
