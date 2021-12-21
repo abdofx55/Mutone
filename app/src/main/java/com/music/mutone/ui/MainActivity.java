@@ -43,13 +43,10 @@ public class MainActivity extends AppCompatActivity {
             Log.d(TAG, "Storage Permission is granted");
             viewModel.setStoragePermissionGranted(true);
 
-            // Read Media Files
-            viewModel.readDataFromRepository();
-
         } else {
             // You can directly ask for the permission.
             // The registered ActivityResultCallback gets the result of this request.
-            Log.d(TAG, "Storage Permission is not granted , request it");
+            Log.d(TAG, "Storage Permission is not granted , requesting it");
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
                     STORAGE_PERMISSION_CODE);
         }
@@ -69,9 +66,6 @@ public class MainActivity extends AppCompatActivity {
 
                 Log.d(TAG, "Storage Permission is granted");
                 viewModel.setStoragePermissionGranted(true);
-
-                // Read Media Files
-                viewModel.readDataFromRepository();
 
             } else {
                 // Permission is denied

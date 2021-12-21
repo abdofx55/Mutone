@@ -78,13 +78,17 @@ public class Player extends MediaPlayer {
     }
 
     public void play() {
-        if (player != null) {
+        try {
             if (!player.isPlaying() && isAudioFocusGranted) {
                 player.start();
 
             } else
                 // request audio focus
                 requestAudioFocus();
+
+        } catch (IllegalStateException e) {
+            // media player is not initialized
+
         }
     }
 
@@ -197,7 +201,7 @@ public class Player extends MediaPlayer {
 
     public MediaFile getCurrentMediaFile() {
         if (mediaFiles != null && mediaFiles.size() > 0) {
-            // Handle IndexOutOfBoundsException --> happens when mediaFiles changed to be lower than index
+            // Handle IndexOutOfBoundsException --> happens when mediaFiles are changed to be lower than index
             // for example :mediaFiles = 30 & index = 30 then the user delete last mediafile
             try {
                 currentMediaFile = mediaFiles.get(index);

@@ -5,7 +5,10 @@
 
     <string name="dot">.</string>
 
-    <string name="empty_due_permission">Storage Permission is Required</string>
+    <string name="permission_required">Storage Permission is Required</string>
+    <string name="failed_to_load">Failed to load media files</string>
+    <string name="no_media_found">No media found on this device</string>
+
     <string name="start_time">0:00</string>
     <string name="end_time">0:00</string>
     <!-- TODO: Remove or change this placeholder text -->

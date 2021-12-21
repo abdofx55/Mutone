@@ -1,6 +1,7 @@
 package com.music.mutone;
 
 import android.app.Application;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
@@ -13,19 +14,19 @@ import java.util.ArrayList;
 public class MediaViewModel extends AndroidViewModel {
 
     private static final String TAG = "VIEW_MODEL_LOG_TAG";
-    public final MutableLiveData<String> storagePermissionState = new MutableLiveData<>();
     private final Player player;
 
-    private final MutableLiveData<Boolean> isStoragePermissionGranted = new MutableLiveData<>();
-    private final MutableLiveData<ArrayList<MediaFile>> mediaFiles = new MutableLiveData<>();
-    private final MutableLiveData<Integer> index = new MutableLiveData<>();
+    private final MutableLiveData<String> errorMessage = new MutableLiveData<>();
+    private boolean isStoragePermissionGranted;
+    private ArrayList<MediaFile> mediaFiles;
+    private int index;
+
     private final MutableLiveData<String> name = new MutableLiveData<>();
     private final MutableLiveData<String> album = new MutableLiveData<>();
     private final MutableLiveData<Integer> position = new MutableLiveData<>();
     private final MutableLiveData<Integer> duration = new MutableLiveData<>();
-    private final MutableLiveData<Boolean> isVary = new MutableLiveData<>();
-    private final MutableLiveData<Boolean> isContinue = new MutableLiveData<>();
-    private final MutableLiveData<Boolean> isRepeating = new MutableLiveData<>();
+    private boolean isVary, isContinue, isRepeating;
+
     Application application;
 
 
@@ -35,41 +36,51 @@ public class MediaViewModel extends AndroidViewModel {
         player = Player.getInstance(application);
     }
 
-    public void readDataFromRepository() {
-        getMediaFiles();
-        getIndex();
-        getName();
-        getAlbum();
-        getPosition();
-        getDuration();
-        getIsVary();
-        getIsRepeating();
-        getIsContinue();
-    }
-
 
     // Getters
     //**********************************************************************************************
 
-    public MutableLiveData<Boolean> isStoragePermissionGranted() {
+    public boolean isStoragePermissionGranted() {
         return isStoragePermissionGranted;
     }
 
     public void setStoragePermissionGranted(boolean storagePermissionGranted) {
-        isStoragePermissionGranted.setValue(storagePermissionGranted);
+        isStoragePermissionGranted = storagePermissionGranted;
 
         if (storagePermissionGranted)
-            storagePermissionState.setValue("");
+            setErrorMessage("");
         else
-            storagePermissionState.setValue(application.getString(R.string.empty_due_permission));
+            setErrorMessage(application.getString(R.string.permission_required));
     }
 
+    public MutableLiveData<String> getErrorMessage() {
+        return errorMessage;
+    }
 
-    public MutableLiveData<ArrayList<MediaFile>> getMediaFiles() {
-        if (mediaFiles.getValue() == null && player != null) {
+    public void setErrorMessage(String message) {
+        errorMessage.setValue(message);
+    }
+
+    public ArrayList<MediaFile> getMediaFiles() {
+        if (mediaFiles == null && player != null) {
+            mediaFiles = new ArrayList<>();
             // Read data from data repository
-            mediaFiles.setValue(player.getMediaFiles());
+            mediaFiles = player.getMediaFiles();
+
+            // Bail early if the arraylist is null or there is less than 1 row in the arraylist
+            if (mediaFiles == null) {
+                setErrorMessage(application.getString(R.string.failed_to_load));
+                Toast.makeText(application, application.getString(R.string.failed_to_load), Toast.LENGTH_SHORT).show();
+
+            } else if (mediaFiles.size() == 0) {
+                setErrorMessage(application.getString(R.string.no_media_found));
+                Toast.makeText(application, application.getString(R.string.no_media_found), Toast.LENGTH_SHORT).show();
+
+            } else {
+                setErrorMessage("");
+            }
         }
+
         return mediaFiles;
     }
 
@@ -109,29 +120,67 @@ public class MediaViewModel extends AndroidViewModel {
         return duration;
     }
 
-    public MutableLiveData<Integer> getIndex() {
+    public int getIndex() {
         if (player != null)
-            index.setValue(player.getIndex());
+            index = player.getIndex();
 
         return index;
     }
 
-    public MutableLiveData<Boolean> getIsVary() {
-        isVary.setValue(player.isVary());
+    public void setIndex(int index) {
+        this.index = index;
+        player.setIndex(index);
+    }
 
+    public boolean isVary() {
+        if (player != null)
+            isVary = player.isVary();
         return isVary;
     }
 
-    public MutableLiveData<Boolean> getIsContinue() {
-        isContinue.setValue(player.isContinue());
+    public void setVary(boolean vary) {
+        isVary = vary;
+        if (player != null)
+            player.setVary(vary);
 
+        if (vary) {
+            setContinue(false);
+            setRepeating(false);
+        }
+    }
+
+    public boolean isContinue() {
+        if (player != null)
+            isContinue = player.isContinue();
         return isContinue;
     }
 
-    public MutableLiveData<Boolean> getIsRepeating() {
-        isRepeating.setValue(player.isRepeating());
+    public void setContinue(boolean aContinue) {
+        isContinue = aContinue;
+        if (player != null)
+            player.setContinue(aContinue);
 
+        if (aContinue) {
+            setVary(true);
+            setRepeating(true);
+        }
+    }
+
+    public boolean isRepeating() {
+        if (player != null)
+            isRepeating = player.isRepeating();
         return isRepeating;
+    }
+
+    public void setRepeating(boolean repeating) {
+        isRepeating = repeating;
+        if (player != null)
+            player.setRepeating(repeating);
+
+        if (repeating) {
+            setVary(false);
+            setContinue(false);
+        }
     }
 
 }

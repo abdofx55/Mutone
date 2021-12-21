@@ -4,7 +4,6 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -16,7 +15,6 @@ import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
-import android.widget.Toast;
 
 import androidx.databinding.DataBindingUtil;
 import androidx.fragment.app.Fragment;
@@ -31,7 +29,6 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.music.mutone.Data.MediaFile;
 import com.music.mutone.MediaViewModel;
-import com.music.mutone.Player;
 import com.music.mutone.PlayerReceiver;
 import com.music.mutone.PlayerService;
 import com.music.mutone.R;
@@ -62,11 +59,9 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
     private static final int PLAY = 2;
     private static final int PAUSE = 3;
     public RecyclerViewAdapter adapter;
-    public Player player;
-    FragmentMainBinding binding;
     LinearLayoutManager layoutManager;
+    FragmentMainBinding binding;
     MediaViewModel viewModel;
-    MediaFilesObserver observer;
     private PlayerClickListener playbackClickListener;
     private OnSeekBarChangeListener seekBarChangeListener;
     // Register the permissions callback, which handles the user's response to the
@@ -74,13 +69,12 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
     // ActivityResultLauncher, as an instance variable.
 
     Animation alfaAscAnimation;
-    Toast toast;
 
     private Handler handler;
     private Runnable runnable;
     private CompletionListener completionListener;
 
-    PlayerService mService;
+    PlayerService playerService;
     boolean mBound = false;
 
     // TODO: Rename and change types of parameters
@@ -97,7 +91,7 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
                                        IBinder service) {
             // We've bound to LocalService, cast the IBinder and get LocalService instance
             PlayerService.LocalBinder binder = (PlayerService.LocalBinder) service;
-            mService = binder.getService();
+            playerService = binder.getService();
             mBound = true;
         }
 
@@ -152,22 +146,29 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
         binding.setViewModel(viewModel);
         binding.setLifecycleOwner(requireActivity());
 
-        viewModel.isStoragePermissionGranted().observe(this, aBoolean -> {
-            if (aBoolean) {
-                // Start Player Service
-                startPlayerService();
+        if (viewModel.isStoragePermissionGranted()) {
+            // Start Player Service
+            startPlayerService();
 
-                viewModel.getMediaFiles().observe(this, observer);
-            }
-        });
-
+            readMediaFiles();
+        }
         return binding.getRoot();
+    }
+
+    private void readMediaFiles() {
+        ArrayList<MediaFile> mediaFiles = viewModel.getMediaFiles();
+
+        // Add the newer arraylist to the adapter
+        adapter.setMediaFiles(mediaFiles);
+
+        updateUI(INITIALISE_UI);
+
+        // Update UI with the current file
+        updateUI(UPDATE_MEDIA_DATA);
     }
 
     private void initializeValues() {
         viewModel = new ViewModelProvider(requireActivity()).get(MediaViewModel.class);
-        player = Player.getInstance(requireContext());
-        observer = new MediaFilesObserver();
         playbackClickListener = new PlayerClickListener();
         seekBarChangeListener = new SeekBarChangeListener();
         completionListener = new CompletionListener();
@@ -219,20 +220,18 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
 
     @Override
     public void onListItemClick(int clickedItemIndex) {
-        if (player != null) {
-            //  update index
-            player.setIndex(clickedItemIndex);
+        //  update index
+        viewModel.setIndex(clickedItemIndex);
 
-            //initialize mediaPlayer
-            player.initialize(requireContext());
+        //initialize mediaPlayer
+        playerService.initialize();
 
-            // play mediaPlayer
-            player.play();
+        // play mediaPlayer
+        playerService.play();
 
-            // update UI
-            updateUI(UPDATE_MEDIA_DATA);
-            updateUI(PLAY);
-        }
+        // update UI
+        updateUI(UPDATE_MEDIA_DATA);
+        updateUI(PLAY);
     }
 
 
@@ -277,47 +276,43 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
     @Override
     public void onResume() {
         super.onResume();
-        if (player != null) {
-            // Attaching OnCompletionListener
-            player.setOnCompletionListener(completionListener);
-
-            updateUI(INITIALISE_UI);
-            updateUI(UPDATE_MEDIA_DATA);
-            initializeSeekBar();
-
-            if (player.isPlaying()) {
-                updateUI(PLAY);
-                player.play();
-            }
-        }
+//        if (player != null) {
+//            // Attaching OnCompletionListener
+//            player.setOnCompletionListener(completionListener);
+//
+//            updateUI(INITIALISE_UI);
+//            updateUI(UPDATE_MEDIA_DATA);
+//            initializeSeekBar();
+//
+//            if (player.isPlaying()) {
+//                updateUI(PLAY);
+//                player.play();
+//            }
+//        }
     }
 
     private void updateUI(int state) {
-        if (player == null)
-            player = Player.getInstance(requireContext());
-
         switch (state) {
             case INITIALISE_UI:
-                binding.recyclerMainActivity.setLayoutManager(layoutManager);
-                binding.recyclerMainActivity.setHasFixedSize(true);
-                binding.recyclerMainActivity.setAdapter(adapter);
-                binding.recyclerMainActivity.scrollTo(player.getIndex(), 0);
-                layoutManager.scrollToPositionWithOffset(player.getIndex(), 0);
+                binding.recyclerMain.setLayoutManager(layoutManager);
+                binding.recyclerMain.setHasFixedSize(true);
+                binding.recyclerMain.setAdapter(adapter);
+                binding.recyclerMain.scrollTo(viewModel.getIndex(), 0);
+                layoutManager.scrollToPositionWithOffset(viewModel.getIndex(), 0);
 
-                if (player.isVary())
+
+                if (viewModel.isVary())
                     binding.playerView.vary.setImageResource(R.drawable.vary_active);
-                if (player.isContinue())
-                    binding.playerView.vary.setImageResource(R.drawable.continued);
-                if (player.isRepeating())
+                if (viewModel.isContinue())
+                    binding.playerView.vary.setImageResource(R.drawable.continue_active);
+                if (viewModel.isRepeating())
                     binding.playerView.repeat.setImageResource(R.drawable.repeat_active);
 
                 break;
 
             case UPDATE_MEDIA_DATA:
                 // Media Data
-                if (player != null) {
-                    initializeSeekBar();
-                }
+                initializeSeekBar();
 
                 viewModel.getName();
                 viewModel.getAlbum();
@@ -386,132 +381,84 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
                 // Vary Button
                 // *************************************************************************************
             } else if (view == binding.playerView.vary) {
-                if (!player.isVary() & !player.isContinue()) {
+                if (!viewModel.isVary() && !viewModel.isContinue()) {
+                    viewModel.setVary(true);
                     binding.playerView.vary.setImageResource(R.drawable.vary_active);
-                    binding.playerView.repeat.setImageResource(R.drawable.repeat_not_active);
-                    player.setRepeating(false);
-                    player.setContinue(false);
-                    player.setVary(true);
 
-
-
-                } else if (player.isVary()) {
-                    binding.playerView.vary.setImageResource(R.drawable.continued);
-                    binding.playerView.repeat.setImageResource(R.drawable.repeat_not_active);
-                    player.setRepeating(false);
-                    player.setContinue(true);
-                    player.setVary(false);
+                } else if (viewModel.isVary()) {
+                    viewModel.setContinue(true);
+                    binding.playerView.vary.setImageResource(R.drawable.continue_active);
 
                 } else {
+                    viewModel.setContinue(false);
                     binding.playerView.vary.setImageResource(R.drawable.vary_not_active);
-                    player.setRepeating(false);
-                    player.setContinue(false);
-                    player.setVary(false);
                 }
 
-//            previous Button
-//             *************************************************************************************
+                // previous Button
+                // *************************************************************************************
             } else if (view == binding.playerView.previous) {
                 makeAlfaAnimation(binding.playerView.previous);
-                if (player != null && player.getMediaFiles() != null) {
-                    mService.previous();
-//                    sendBroadcast(ACTION_PLAY);
 
-                    updateUI(UPDATE_MEDIA_DATA);
-                    updateUI(PLAY);
+                playerService.previous();
+//              sendBroadcast(ACTION_PLAY);
 
-                    //scroll to list item position
-                    binding.recyclerMainActivity.scrollTo(player.getIndex(), 0);
-                    layoutManager.scrollToPositionWithOffset(player.getIndex(), 0);
-                }
+                updateUI(UPDATE_MEDIA_DATA);
+                updateUI(PLAY);
+
+                //scroll to list item position
+                binding.recyclerMain.scrollTo(viewModel.getIndex(), 0);
+
 
 //            play Button
 //             *************************************************************************************
             } else if (view == binding.playerView.playLayout) {
-                if (player != null && player.getMediaFiles() != null) {
-                    if (!player.isPlaying()) {
-                        mService.play();
+                if (!playerService.isPlaying()) {
+                    playerService.initialize();
+                    playerService.play();
 //                        sendBroadcast(ACTION_PLAY);
 
-                        //set Animation
-                        makeAlfaAnimation(binding.playerView.play);
-                        makeAlfaAnimation(binding.playerView.playFilter);
-                        // Update UI
-                        updateUI(PLAY);
+                    //set Animation
+                    makeAlfaAnimation(binding.playerView.play);
+                    makeAlfaAnimation(binding.playerView.playFilter);
+                    // Update UI
+                    updateUI(PLAY);
 
-                    } else {
-                        sendBroadcast(ACTION_PAUSE);
+                } else {
+//                        sendBroadcast(ACTION_PAUSE);
 
-                        //clear Animation
-                        binding.playerView.play.clearAnimation();
-                        binding.playerView.playFilter.clearAnimation();
-                        // Update UI
-                        updateUI(PAUSE);
+                    playerService.pause();
+                    //clear Animation
+                    binding.playerView.play.clearAnimation();
+                    binding.playerView.playFilter.clearAnimation();
+                    // Update UI
+                    updateUI(PAUSE);
 
-                    }
                 }
 
                 // next Button
                 // *************************************************************************************
             } else if (view == binding.playerView.fastForward) {
                 makeAlfaAnimation(binding.playerView.fastForward);
-                if (player != null && player.getMediaFiles() != null) {
-                    mService.forward();
-//                    sendBroadcast(ACTION_PLAY);
+                playerService.forward();
+//              sendBroadcast(ACTION_PLAY);
 
-                    updateUI(UPDATE_MEDIA_DATA);
-                    updateUI(PLAY);
+                updateUI(UPDATE_MEDIA_DATA);
+                updateUI(PLAY);
 
-                    //scroll to list item position
-                    binding.recyclerMainActivity.scrollTo(player.getIndex(), 0);
-                    layoutManager.scrollToPositionWithOffset(player.getIndex(), 0);
-                }
+                //scroll to list item position
+                binding.recyclerMain.scrollTo(viewModel.getIndex(), 0);
+
 
                 // repeat Button
                 // *************************************************************************************
             } else if (view == binding.playerView.repeat) {
-                if (!player.isRepeating()) {
+                if (!viewModel.isRepeating()) {
+                    viewModel.setRepeating(true);
                     binding.playerView.repeat.setImageResource(R.drawable.repeat_active);
-                    binding.playerView.vary.setImageResource(R.drawable.vary_not_active);
-
-                    player.setRepeating(true);
-                    player.setContinue(false);
-                    player.setVary(false);
-
                 } else {
+                    viewModel.setRepeating(false);
                     binding.playerView.repeat.setImageResource(R.drawable.repeat_not_active);
-                    player.setRepeating(false);
                 }
-            }
-        }
-    }
-
-    private class MediaFilesObserver implements Observer<ArrayList<MediaFile>> {
-
-        @Override
-        public void onChanged(ArrayList<MediaFile> mediaFiles) {
-            Log.v(TAG, "mediaFiles has changed");
-
-            // Bail early if the arraylist is null or there is less than 1 row in the arraylist
-            if (mediaFiles == null) {
-                binding.emptyMainlistTextView.setText("Failed to load media files");
-                Toast.makeText(requireContext(), "Failed to load media files", Toast.LENGTH_SHORT).show();
-
-            } else if (mediaFiles.size() == 0) {
-                binding.emptyMainlistTextView.setText("No media found on this device");
-                Toast.makeText(requireContext(), "No media found on this device", Toast.LENGTH_SHORT).show();
-            } else {
-                binding.emptyMainlistTextView.setText("");
-
-                // Add the newer arraylist to the adapter
-                adapter.setMediaFiles(mediaFiles);
-                binding.recyclerMainActivity.setAdapter(adapter);
-
-                // Initialize MediaPlayer
-                player.initialize(requireContext());
-
-                //update UI with the current file
-                updateUI(UPDATE_MEDIA_DATA);
             }
         }
     }
@@ -520,9 +467,9 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
 
         @Override
         public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-            if (player != null && fromUser) {
+            if (fromUser) {
                 Log.d(TAG, "progress changed to : " + progress);
-                mService.seekTo(progress);
+                playerService.seekTo(progress);
             }
         }
 
@@ -534,34 +481,6 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
         @Override
         public void onStopTrackingTouch(SeekBar seekBar) {
             Log.v("LOG_TAG", "seekBar StopTrackingTouch");
-        }
-    }
-
-    private class CompletionListener implements MediaPlayer.OnCompletionListener {
-
-        @Override
-        public void onCompletion(MediaPlayer mediaPlayer) {
-            if (player.isRepeating()) {
-                player.initialize(requireContext());
-                player.play();
-                updateUI(UPDATE_MEDIA_DATA);
-            }
-
-
-            if (player.isVary()) {
-                player.varyNext(requireContext());
-                player.initialize(requireContext());
-                player.play();
-                updateUI(UPDATE_MEDIA_DATA);
-            }
-
-            if (player.isContinue()) {
-                player.setIndex(player.getIndex() + 1);
-                player.initialize(requireContext());
-                player.play();
-                updateUI(UPDATE_MEDIA_DATA);
-            }
-
         }
     }
 }

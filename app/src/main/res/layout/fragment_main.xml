@@ -44,7 +44,7 @@
 
 
         <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recycler_main_activity"
+            android:id="@+id/recycler_main"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_marginTop="36dp"
@@ -96,10 +96,10 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintHorizontal_bias="0.498"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="@+id/recycler_main_activity"
+            android:text="@{viewModel.errorMessage}"
             app:layout_constraintVertical_bias="0.35"
-            android:text="@{viewModel.storagePermissionState}"
-            tools:text="@string/empty_due_permission" />
+            app:layout_constraintTop_toTopOf="@+id/recycler_main"
+            tools:text="@string/permission_required" />
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/constraintLayout2"
@@ -127,7 +127,7 @@
                 app:srcCompat="@drawable/albums_slider"
                 tools:ignore="contentDescription" />
 
-            <ImageView
+            <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/favorite"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
@@ -145,6 +145,8 @@
                 app:layout_constraintVertical_bias="0.16"
                 app:srcCompat="@drawable/favorite"
                 tools:ignore="contentDescription" />
+            <!--            app:srcCompat= "@{viewModel.favouriteIcon}"-->
+
 
             <TextView
                 android:id="@+id/song_name"

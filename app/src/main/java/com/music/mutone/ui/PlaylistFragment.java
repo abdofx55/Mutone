@@ -95,14 +95,14 @@ public class PlaylistFragment extends Fragment implements RecyclerViewAdapter.Li
         viewModel = new ViewModelProvider(requireActivity()).get(MediaViewModel.class);
         player = Player.getInstance(requireActivity());
         adapter = new RecyclerViewAdapter(this);
-        ArrayList<MediaFile> mediaFiles = viewModel.getMediaFiles().getValue();
+        ArrayList<MediaFile> mediaFiles = viewModel.getMediaFiles();
         adapter.setMediaFiles(mediaFiles);
 
 
-        binding.recyclerPlaylistActivity.setAdapter(adapter);
+        binding.recyclerPlaylist.setAdapter(adapter);
         layoutManager = new LinearLayoutManager(requireContext());
-        binding.recyclerPlaylistActivity.setLayoutManager(layoutManager);
-        binding.recyclerPlaylistActivity.setHasFixedSize(true);
+        binding.recyclerPlaylist.setLayoutManager(layoutManager);
+        binding.recyclerPlaylist.setHasFixedSize(true);
 
         layoutManager.scrollToPositionWithOffset(player.getIndex(), 0);
 
@@ -123,8 +123,8 @@ public class PlaylistFragment extends Fragment implements RecyclerViewAdapter.Li
 
     @Override
     public void onListItemClick(int clickedItemIndex) {
-        if (clickedItemIndex != player.getIndex()) {
-            player.setIndex(clickedItemIndex);
+        if (clickedItemIndex != viewModel.getIndex()) {
+            viewModel.setIndex(clickedItemIndex);
             player.initialize(requireContext());
             sendBroadcast(ACTION_PLAY);
         }

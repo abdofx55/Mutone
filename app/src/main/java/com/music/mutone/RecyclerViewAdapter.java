@@ -45,8 +45,9 @@ public class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerViewAdapte
     }
 
     public void setMediaFiles(ArrayList<MediaFile> mediaFiles) {
-        if (this.mediaFiles == mediaFiles) { return; }
-        this.mediaFiles = mediaFiles;
+        if (mediaFiles != null) {
+            this.mediaFiles = mediaFiles;
+        }
     }
 
     public interface ListItemClickHandler{

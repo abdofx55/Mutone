@@ -38,11 +38,11 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            android:text="@{viewModel.storagePermissionState}"
-            tools:text="@string/empty_due_permission" />
+            android:text="@{viewModel.errorMessage}"
+            tools:text="@string/permission_required" />
 
         <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recycler_playlist_activity"
+            android:id="@+id/recycler_playlist"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:paddingLeft="20dp"
