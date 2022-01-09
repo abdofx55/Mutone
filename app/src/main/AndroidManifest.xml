@@ -20,10 +20,14 @@
         android:requestLegacyExternalStorage="true">
 
         <!--        android:description="media player"-->
-        <service
-            android:name=".PlayerService"
-            android:exported="false" />
 
+        <service
+            android:name=".MediaPlaybackService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
 
         <activity
             android:name="com.music.mutone.ui.MainActivity"

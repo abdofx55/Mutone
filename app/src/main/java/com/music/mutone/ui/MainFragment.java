@@ -1,8 +1,10 @@
 package com.music.mutone.ui;
 
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.Handler;
@@ -18,7 +20,6 @@ import android.widget.SeekBar.OnSeekBarChangeListener;
 
 import androidx.databinding.DataBindingUtil;
 import androidx.fragment.app.Fragment;
-import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.navigation.NavController;
@@ -28,9 +29,8 @@ import androidx.navigation.fragment.NavHostFragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.music.mutone.Data.MediaFile;
+import com.music.mutone.MediaPlaybackService;
 import com.music.mutone.MediaViewModel;
-import com.music.mutone.PlayerReceiver;
-import com.music.mutone.PlayerService;
 import com.music.mutone.R;
 import com.music.mutone.RecyclerViewAdapter;
 import com.music.mutone.Tasks;
@@ -39,7 +39,7 @@ import com.music.mutone.databinding.FragmentMainBinding;
 import java.util.ArrayList;
 
 
-public class MainFragment extends Fragment implements RecyclerViewAdapter.ListItemClickHandler {
+public class MainFragment extends Fragment implements RecyclerViewAdapter.ListItemClickHandler, ServiceConnection {
 
     private static final String TAG = "MAIN_FRAGMENT_LOG_TAG";
 
@@ -72,35 +72,15 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
 
     private Handler handler;
     private Runnable runnable;
-    private CompletionListener completionListener;
 
-    PlayerService playerService;
+    MediaPlaybackService mediaPlaybackService;
     boolean mBound = false;
+
+    PlayerReceiver receiver;
 
     // TODO: Rename and change types of parameters
     private String mParam1;
     private String mParam2;
-
-    /**
-     * Defines callbacks for service binding, passed to bindService()
-     */
-    private final ServiceConnection connection = new ServiceConnection() {
-
-        @Override
-        public void onServiceConnected(ComponentName className,
-                                       IBinder service) {
-            // We've bound to LocalService, cast the IBinder and get LocalService instance
-            PlayerService.LocalBinder binder = (PlayerService.LocalBinder) service;
-            playerService = binder.getService();
-            mBound = true;
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName arg0) {
-            mBound = false;
-        }
-    };
-
 
     public MainFragment() {
         // Required empty public constructor
@@ -127,6 +107,7 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.d(TAG, "onCreate");
         if (getArguments() != null) {
             mParam1 = getArguments().getString(ARG_PARAM1);
             mParam2 = getArguments().getString(ARG_PARAM2);
@@ -136,23 +117,70 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
+        Log.d(TAG, "onCreateView");
         // Inflate the layout for this fragment
         binding = DataBindingUtil.inflate(inflater, R.layout.fragment_main, container, false);
 
         initializeValues();
         attachListeners();
+        initializeUI();
 
-        // Setting viewModel in xml to update UI
-        binding.setViewModel(viewModel);
-        binding.setLifecycleOwner(requireActivity());
-
+        // Check if Storage Permission granted
         if (viewModel.isStoragePermissionGranted()) {
-            // Start Player Service
-            startPlayerService();
-
+            // 1 -> read media files
             readMediaFiles();
+
+            // 2 -> Update UI with the current file
+            updateUI();
+
+            // 3 -> Start Player Service
+            bindPlayerService();
+
+            // 4 -> register Player BroadCast Receiver
+            registerPlayerReceiver();
         }
+
         return binding.getRoot();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        Log.d(TAG, "OnResume");
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        Log.d(TAG, "OnPause");
+        unBindPlayerService();
+        LocalBroadcastManager.getInstance(requireContext()).unregisterReceiver(receiver);
+    }
+
+    @Override
+    public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
+        // We've bound to LocalService, cast the IBinder and get LocalService instance
+        Log.d(TAG, "onServiceConnected");
+        MediaPlaybackService.LocalBinder binder = (MediaPlaybackService.LocalBinder) iBinder;
+        mediaPlaybackService = binder.getService();
+        updatePlayState(mediaPlaybackService.isPlaying());
+        mBound = true;
+    }
+
+    @Override
+    public void onServiceDisconnected(ComponentName componentName) {
+        Log.d(TAG, "onServiceDisconnected");
+        mBound = false;
+    }
+
+    private void bindPlayerService() {
+        Intent serviceIntent = new Intent(requireContext(), MediaPlaybackService.class);
+        requireActivity().startService(serviceIntent);
+        requireActivity().bindService(serviceIntent, this, Context.BIND_AUTO_CREATE);
+    }
+
+    private void unBindPlayerService() {
+        requireActivity().unbindService(this);
     }
 
     private void readMediaFiles() {
@@ -161,21 +189,22 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
         // Add the newer arraylist to the adapter
         adapter.setMediaFiles(mediaFiles);
 
-        updateUI(INITIALISE_UI);
 
-        // Update UI with the current file
-        updateUI(UPDATE_MEDIA_DATA);
     }
 
     private void initializeValues() {
         viewModel = new ViewModelProvider(requireActivity()).get(MediaViewModel.class);
         playbackClickListener = new PlayerClickListener();
         seekBarChangeListener = new SeekBarChangeListener();
-        completionListener = new CompletionListener();
         adapter = new RecyclerViewAdapter(this);
         layoutManager = new LinearLayoutManager(requireContext());
         alfaAscAnimation = AnimationUtils.loadAnimation(requireContext(), R.anim.alfa_asc);
         handler = new Handler();
+        receiver = new PlayerReceiver();
+
+        // Setting viewModel in xml to update UI
+        binding.setViewModel(viewModel);
+        binding.setLifecycleOwner(requireActivity());
     }
 
     private void attachListeners() {
@@ -191,32 +220,16 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
 
     }
 
-
-    protected void onRestart() {
-//        layoutManager.scrollToPositionWithOffset(player.getIndex(), 0);
-//        if (player.isSongChosen()) {
-//            alfaAscAnimation = AnimationUtils.loadAnimation(requireContext(), R.anim.alfa_asc);
-//            binding.playerView.play.setAnimation(alfaAscAnimation);
-//            player.initialize();
-//            player.play();
-//        }
-//
-//        player.setSongChosen(false);
-
+    private void registerPlayerReceiver() {
+        if (receiver != null) {
+            IntentFilter filter = new IntentFilter();
+            filter.addAction(ACTION_PLAY);
+            filter.addAction(ACTION_PAUSE);
+            filter.addAction(ACTION_FORWARD);
+            filter.addAction(ACTION_PREVIOUS);
+            LocalBroadcastManager.getInstance(requireContext()).registerReceiver(receiver, filter);
+        }
     }
-
-    private void startPlayerService() {
-        Intent serviceIntent = new Intent(requireContext(), PlayerService.class);
-        requireActivity().startService(serviceIntent);
-        requireActivity().bindService(serviceIntent, connection, Context.BIND_AUTO_CREATE);
-    }
-
-    public void sendBroadcast(String action) {
-        Intent intent = new Intent(requireContext(), PlayerReceiver.class);
-        intent.setAction((action));
-        LocalBroadcastManager.getInstance(requireActivity()).sendBroadcast(intent);
-    }
-
 
     @Override
     public void onListItemClick(int clickedItemIndex) {
@@ -224,34 +237,23 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
         viewModel.setIndex(clickedItemIndex);
 
         //initialize mediaPlayer
-        playerService.initialize();
+        mediaPlaybackService.initialize();
 
         // play mediaPlayer
-        playerService.play();
-
-        // update UI
-        updateUI(UPDATE_MEDIA_DATA);
-        updateUI(PLAY);
+        mediaPlaybackService.play();
     }
 
 
     private void initializeSeekBar() {
         // Duration
-        viewModel.getDuration().observe(this, duration -> {
-            binding.playerView.seekBar.setMax(duration);
-            binding.playerView.duration.setText(Tasks.formatMilliSecond(duration));
-        });
+        binding.playerView.seekBar.setMax(viewModel.getDuration());
+        binding.playerView.duration.setText(Tasks.formatMilliSecond(viewModel.getDuration()));
+        Log.d(TAG, "Duration is : " + Tasks.formatMilliSecond(viewModel.getDuration()));
 
         // Position
         runnable = () -> {
-            viewModel.getPosition().observe(this, new Observer<Integer>() {
-                @Override
-                public void onChanged(Integer position) {
-                    Log.d(TAG, "position is : " + position);
-                    binding.playerView.seekBar.setProgress(position);
-                    binding.playerView.position.setText(Tasks.formatMilliSecond(position));
-                }
-            });
+            binding.playerView.seekBar.setProgress(viewModel.getPosition());
+            binding.playerView.position.setText(Tasks.formatMilliSecond(viewModel.getPosition()));
 
             handler.postDelayed(runnable, 1000);
         };
@@ -268,72 +270,40 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
 //    }
 
 
-    @Override
-    public void onStart() {
-        super.onStart();
+    private void initializeUI() {
+        binding.recyclerMain.setLayoutManager(layoutManager);
+        binding.recyclerMain.setHasFixedSize(true);
+        binding.recyclerMain.setAdapter(adapter);
+        layoutManager.scrollToPositionWithOffset(viewModel.getIndex(), 0);
+
+
+        if (viewModel.isVary())
+            binding.playerView.vary.setImageResource(R.drawable.vary_active);
+        if (viewModel.isContinue())
+            binding.playerView.vary.setImageResource(R.drawable.continue_active);
+        if (viewModel.isRepeating())
+            binding.playerView.repeat.setImageResource(R.drawable.repeat_active);
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-//        if (player != null) {
-//            // Attaching OnCompletionListener
-//            player.setOnCompletionListener(completionListener);
-//
-//            updateUI(INITIALISE_UI);
-//            updateUI(UPDATE_MEDIA_DATA);
-//            initializeSeekBar();
-//
-//            if (player.isPlaying()) {
-//                updateUI(PLAY);
-//                player.play();
-//            }
-//        }
+    private void updateUI() {
+        // Media Data
+        viewModel.getName();
+        viewModel.getAlbum();
+        initializeSeekBar();
+
     }
 
-    private void updateUI(int state) {
-        switch (state) {
-            case INITIALISE_UI:
-                binding.recyclerMain.setLayoutManager(layoutManager);
-                binding.recyclerMain.setHasFixedSize(true);
-                binding.recyclerMain.setAdapter(adapter);
-                binding.recyclerMain.scrollTo(viewModel.getIndex(), 0);
-                layoutManager.scrollToPositionWithOffset(viewModel.getIndex(), 0);
-
-
-                if (viewModel.isVary())
-                    binding.playerView.vary.setImageResource(R.drawable.vary_active);
-                if (viewModel.isContinue())
-                    binding.playerView.vary.setImageResource(R.drawable.continue_active);
-                if (viewModel.isRepeating())
-                    binding.playerView.repeat.setImageResource(R.drawable.repeat_active);
-
-                break;
-
-            case UPDATE_MEDIA_DATA:
-                // Media Data
-                initializeSeekBar();
-
-                viewModel.getName();
-                viewModel.getAlbum();
-                viewModel.getPosition();
-                viewModel.getDuration();
-
-                break;
-
-            case PLAY:
-                // Active playback.
-                binding.playerView.pause.setVisibility(View.INVISIBLE);
-                binding.playerView.play.setVisibility(View.VISIBLE);
-                binding.playerView.playFilter.setVisibility(View.VISIBLE);
-                break;
-
-            case PAUSE:
-                // Not playing because playback is paused, ended
-                binding.playerView.play.setVisibility(View.INVISIBLE);
-                binding.playerView.playFilter.setVisibility(View.INVISIBLE);
-                binding.playerView.pause.setVisibility(View.VISIBLE);
-                break;
+    private void updatePlayState(boolean isPlaying) {
+        if (isPlaying) {
+            // Active playback.
+            binding.playerView.pause.setVisibility(View.INVISIBLE);
+            binding.playerView.play.setVisibility(View.VISIBLE);
+            binding.playerView.playFilter.setVisibility(View.VISIBLE);
+        } else {
+            // Not playing because playback is paused, ended
+            binding.playerView.play.setVisibility(View.INVISIBLE);
+            binding.playerView.playFilter.setVisibility(View.INVISIBLE);
+            binding.playerView.pause.setVisibility(View.VISIBLE);
         }
     }
 
@@ -352,7 +322,6 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
         if (navDestination != null && navDestination.getId() == R.id.mainFragment)
             navController.navigate(action);
     }
-
 
     class PlayerClickListener implements View.OnClickListener {
         @Override
@@ -396,58 +365,41 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
 
                 // previous Button
                 // *************************************************************************************
-            } else if (view == binding.playerView.previous) {
+            } else if (view == binding.playerView.previous && viewModel.isStoragePermissionGranted()) {
                 makeAlfaAnimation(binding.playerView.previous);
 
-                playerService.previous();
-//              sendBroadcast(ACTION_PLAY);
-
-                updateUI(UPDATE_MEDIA_DATA);
-                updateUI(PLAY);
+                mediaPlaybackService.previous();
 
                 //scroll to list item position
-                binding.recyclerMain.scrollTo(viewModel.getIndex(), 0);
-
+                layoutManager.scrollToPositionWithOffset(viewModel.getIndex(), 0);
 
 //            play Button
 //             *************************************************************************************
-            } else if (view == binding.playerView.playLayout) {
-                if (!playerService.isPlaying()) {
-                    playerService.initialize();
-                    playerService.play();
-//                        sendBroadcast(ACTION_PLAY);
+            } else if (view == binding.playerView.playLayout && viewModel.isStoragePermissionGranted()) {
+                if (!mediaPlaybackService.isPlaying()) {
+                    mediaPlaybackService.play();
 
                     //set Animation
                     makeAlfaAnimation(binding.playerView.play);
                     makeAlfaAnimation(binding.playerView.playFilter);
-                    // Update UI
-                    updateUI(PLAY);
 
                 } else {
-//                        sendBroadcast(ACTION_PAUSE);
+                    mediaPlaybackService.pause();
 
-                    playerService.pause();
                     //clear Animation
                     binding.playerView.play.clearAnimation();
                     binding.playerView.playFilter.clearAnimation();
-                    // Update UI
-                    updateUI(PAUSE);
 
                 }
 
                 // next Button
                 // *************************************************************************************
-            } else if (view == binding.playerView.fastForward) {
+            } else if (view == binding.playerView.fastForward && viewModel.isStoragePermissionGranted()) {
                 makeAlfaAnimation(binding.playerView.fastForward);
-                playerService.forward();
-//              sendBroadcast(ACTION_PLAY);
-
-                updateUI(UPDATE_MEDIA_DATA);
-                updateUI(PLAY);
+                mediaPlaybackService.forward();
 
                 //scroll to list item position
-                binding.recyclerMain.scrollTo(viewModel.getIndex(), 0);
-
+                layoutManager.scrollToPositionWithOffset(viewModel.getIndex(), 0);
 
                 // repeat Button
                 // *************************************************************************************
@@ -469,7 +421,7 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
         public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
             if (fromUser) {
                 Log.d(TAG, "progress changed to : " + progress);
-                playerService.seekTo(progress);
+                mediaPlaybackService.seekTo(progress);
             }
         }
 
@@ -481,6 +433,36 @@ public class MainFragment extends Fragment implements RecyclerViewAdapter.ListIt
         @Override
         public void onStopTrackingTouch(SeekBar seekBar) {
             Log.v("LOG_TAG", "seekBar StopTrackingTouch");
+        }
+    }
+
+    public class PlayerReceiver extends BroadcastReceiver {
+
+        public PlayerReceiver() {
+            Log.v(TAG, "Receiver is created");
+        }
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.d(TAG, "onReceive");
+            String action = intent.getAction();
+            Log.v(TAG, "Action is : " + action);
+            switch (action) {
+                case ACTION_PLAY:
+                    updateUI();
+                    updatePlayState(true);
+                    break;
+                case ACTION_PAUSE:
+                    updatePlayState(false);
+                    break;
+                case ACTION_FORWARD:
+                case ACTION_PREVIOUS:
+                    //scroll to list item position
+                    layoutManager.scrollToPositionWithOffset(viewModel.getIndex(), 0);
+
+                    break;
+            }
+
         }
     }
 }

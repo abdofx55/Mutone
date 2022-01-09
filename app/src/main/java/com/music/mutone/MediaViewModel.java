@@ -1,6 +1,7 @@
 package com.music.mutone;
 
 import android.app.Application;
+import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -8,23 +9,26 @@ import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.MutableLiveData;
 
 import com.music.mutone.Data.MediaFile;
+import com.music.mutone.Data.Repository;
 
 import java.util.ArrayList;
 
 public class MediaViewModel extends AndroidViewModel {
 
     private static final String TAG = "VIEW_MODEL_LOG_TAG";
-    private final Player player;
 
     private final MutableLiveData<String> errorMessage = new MutableLiveData<>();
+
     private boolean isStoragePermissionGranted;
+    Repository repository;
+
     private ArrayList<MediaFile> mediaFiles;
-    private int index;
+    private MediaFile currentMediaFile;
+    private int index, position, duration;
 
     private final MutableLiveData<String> name = new MutableLiveData<>();
     private final MutableLiveData<String> album = new MutableLiveData<>();
-    private final MutableLiveData<Integer> position = new MutableLiveData<>();
-    private final MutableLiveData<Integer> duration = new MutableLiveData<>();
+
     private boolean isVary, isContinue, isRepeating;
 
     Application application;
@@ -33,7 +37,7 @@ public class MediaViewModel extends AndroidViewModel {
     public MediaViewModel(@NonNull Application application) {
         super(application);
         this.application = application;
-        player = Player.getInstance(application);
+        repository = Repository.getInstance(application);
     }
 
 
@@ -61,11 +65,12 @@ public class MediaViewModel extends AndroidViewModel {
         errorMessage.setValue(message);
     }
 
+
     public ArrayList<MediaFile> getMediaFiles() {
-        if (mediaFiles == null && player != null) {
-            mediaFiles = new ArrayList<>();
+        if (mediaFiles == null) {
+
             // Read data from data repository
-            mediaFiles = player.getMediaFiles();
+            mediaFiles = repository.getMediaFiles();
 
             // Bail early if the arraylist is null or there is less than 1 row in the arraylist
             if (mediaFiles == null) {
@@ -84,64 +89,65 @@ public class MediaViewModel extends AndroidViewModel {
         return mediaFiles;
     }
 
-
     public MutableLiveData<String> getName() {
-        if (player != null) {
-            MediaFile mediaFile = player.getCurrentMediaFile();
+        MediaFile mediaFile = repository.getCurrentMediaFile();
             if (mediaFile != null) {
                 name.setValue(mediaFile.getName());
             }
-        }
+
         return name;
     }
 
     public MutableLiveData<String> getAlbum() {
-        if (player != null) {
-            MediaFile mediaFile = player.getCurrentMediaFile();
+        MediaFile mediaFile = repository.getCurrentMediaFile();
+        if (mediaFile != null)
+            album.setValue(mediaFile.getAlbum());
 
-            if (mediaFile != null)
-                album.setValue(mediaFile.getAlbum());
-        }
         return album;
     }
 
-
-    public MutableLiveData<Integer> getPosition() {
-        if (player != null)
-            position.setValue(player.getPosition());
-
-        return position;
-    }
-
-    public MutableLiveData<Integer> getDuration() {
-        if (player != null)
-            duration.setValue(player.getDurationTime());
-
+    public Integer getDuration() {
+        MediaFile mediaFile = repository.getCurrentMediaFile();
+        if (mediaFile != null) {
+            duration = mediaFile.getDuration();
+            Log.d(TAG, "Duration is : " + Tasks.formatMilliSecond(duration));
+        }
         return duration;
     }
 
     public int getIndex() {
-        if (player != null)
-            index = player.getIndex();
-
+        index = repository.getIndex();
         return index;
     }
 
     public void setIndex(int index) {
         this.index = index;
-        player.setIndex(index);
+        repository.setIndex(index);
+    }
+
+    public int getPosition() {
+        position = repository.getPosition();
+
+        // check if the mediafile has changed
+        if (getDuration() != repository.getDuration())
+            setPosition(0);
+
+        return position;
+    }
+
+    public void setPosition(int position) {
+        this.position = position;
+        repository.setIndex(index);
     }
 
     public boolean isVary() {
-        if (player != null)
-            isVary = player.isVary();
+        isVary = repository.isVary();
         return isVary;
     }
 
     public void setVary(boolean vary) {
         isVary = vary;
-        if (player != null)
-            player.setVary(vary);
+        repository.setVary(vary);
 
         if (vary) {
             setContinue(false);
@@ -150,15 +156,13 @@ public class MediaViewModel extends AndroidViewModel {
     }
 
     public boolean isContinue() {
-        if (player != null)
-            isContinue = player.isContinue();
+        isContinue = repository.isContinue();
         return isContinue;
     }
 
     public void setContinue(boolean aContinue) {
         isContinue = aContinue;
-        if (player != null)
-            player.setContinue(aContinue);
+        repository.setContinue(aContinue);
 
         if (aContinue) {
             setVary(true);
@@ -167,15 +171,13 @@ public class MediaViewModel extends AndroidViewModel {
     }
 
     public boolean isRepeating() {
-        if (player != null)
-            isRepeating = player.isRepeating();
+        isRepeating = repository.isRepeating();
         return isRepeating;
     }
 
     public void setRepeating(boolean repeating) {
         isRepeating = repeating;
-        if (player != null)
-            player.setRepeating(repeating);
+        repository.setRepeating(repeating);
 
         if (repeating) {
             setVary(false);
